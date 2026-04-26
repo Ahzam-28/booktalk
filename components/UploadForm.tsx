@@ -22,6 +22,7 @@ import {upload} from "@vercel/blob/client";
 
 const UploadForm = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [statusMessage, setStatusMessage] = useState("");
     const [isMounted, setIsMounted] = useState(false);
     const { userId } = useAuth();
     const router = useRouter()
@@ -47,6 +48,7 @@ const UploadForm = () => {
         }
 
         setIsSubmitting(true);
+        setStatusMessage("Checking if book already exists...");
 
         // PostHog -> Track Book Uploads...
 
@@ -63,41 +65,63 @@ const UploadForm = () => {
             const fileTitle = data.title.replace(/\s+/g, '-').toLowerCase();
             const pdfFile = data.pdfFile;
 
+            setStatusMessage("Parsing PDF file and extracting text... (This may take a minute for large books)");
             const parsedPDF = await parsePDFFile(pdfFile);
 
             if(parsedPDF.content.length === 0) {
-                toast.error("Failed to parse PDF. Please try again with a different file.");
-                return;
+                toast.warning("No readable text found in PDF. Using default content.");
+                parsedPDF.content = [
+                    {
+                        text: "No readable text was found in this document. It may be a scanned image or empty file.",
+                        segmentIndex: 0,
+                        wordCount: 16,
+                    }
+                ];
             }
 
+            setStatusMessage("Uploading PDF to Vercel Blob storage... (0%)");
             const uploadedPdfBlob = await upload(fileTitle, pdfFile, {
                 access: 'public',
                 handleUploadUrl: '/api/upload',
-                contentType: 'application/pdf'
+                contentType: 'application/pdf',
+                multipart: true,
+                onUploadProgress: (progressEvent) => {
+                    setStatusMessage(`Uploading PDF to Vercel Blob storage... (${progressEvent.percentage}%)`);
+                }
             });
 
             let coverUrl: string;
 
+            setStatusMessage("Generating and uploading cover image...");
             if(data.coverImage) {
                 const coverFile = data.coverImage;
+                setStatusMessage("Generating and uploading cover image... (0%)");
                 const uploadedCoverBlob = await upload(`${fileTitle}_cover.png`, coverFile, {
                     access: 'public',
                     handleUploadUrl: '/api/upload',
-                    contentType: coverFile.type
+                    contentType: coverFile.type,
+                    onUploadProgress: (progressEvent) => {
+                        setStatusMessage(`Uploading cover image... (${progressEvent.percentage}%)`);
+                    }
                 });
                 coverUrl = uploadedCoverBlob.url;
             } else {
                 const response = await fetch(parsedPDF.cover)
                 const blob = await response.blob();
 
+                setStatusMessage("Generating and uploading cover image... (0%)");
                 const uploadedCoverBlob = await upload(`${fileTitle}_cover.png`, blob, {
                     access: 'public',
                     handleUploadUrl: '/api/upload',
-                    contentType: 'image/png'
+                    contentType: 'image/png',
+                    onUploadProgress: (progressEvent) => {
+                        setStatusMessage(`Uploading cover image... (${progressEvent.percentage}%)`);
+                    }
                 });
                 coverUrl = uploadedCoverBlob.url;
             }
 
+            setStatusMessage("Creating database entry...");
             const book = await createBook({
                 clerkId: userId,
                 title: data.title,
@@ -124,6 +148,7 @@ const UploadForm = () => {
                 return;
             }
 
+            setStatusMessage("Saving processed text segments to the database...");
             const segments = await saveBookSegments(book.data._id, userId, parsedPDF.content);
 
             if(!segments.success) {
@@ -135,8 +160,8 @@ const UploadForm = () => {
             router.push('/');
         } catch (error) {
             console.error(error);
-
-            toast.error("Failed to upload book. Please try again later.");
+            const errorMessage = error instanceof Error ? error.message : "Failed to upload book. Please try again later.";
+            toast.error(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
@@ -146,7 +171,7 @@ const UploadForm = () => {
 
     return (
         <>
-            {isSubmitting && <LoadingOverlay />}
+            {isSubmitting && <LoadingOverlay message={statusMessage} />}
 
             <div className="new-book-wrapper">
                 <Form {...form}>
