@@ -231,3 +231,36 @@ export const searchBookSegments = async (bookId: string, query: string, limit: n
         };
     }
 };
+
+// Fetch all book segments for the agent
+export const getBookSegments = async (bookId: string) => {
+    try {
+        await connectToDatabase();
+
+        const bookObjectId = new mongoose.Types.ObjectId(bookId);
+
+        const segments = await BookSegment.find({ bookId: bookObjectId })
+            .select('content segmentIndex pageNumber')
+            .sort({ segmentIndex: 1 })
+            .lean();
+
+        // Combine all segments into a single text
+        const fullBookContent = segments
+            .map((seg: any) => seg.content)
+            .join('\n\n');
+
+        return {
+            success: true,
+            data: fullBookContent,
+            segmentCount: segments.length,
+        };
+    } catch (error) {
+        console.error('Error fetching book segments:', error);
+        return {
+            success: false,
+            error: (error as Error).message,
+            data: '',
+            segmentCount: 0,
+        };
+    }
+};

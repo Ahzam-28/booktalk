@@ -26,7 +26,7 @@ const Search = () => {
         }, 300);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [query, pathname, router]);
+    }, [query, pathname]);
 
     return (
         <div className="library-search-wrapper">

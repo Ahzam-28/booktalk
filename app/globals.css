@@ -483,6 +483,26 @@
     @apply text-sm font-semibold text-[var(--text-primary)] text-center truncate;
   }
 
+  /* Chat Input Styles */
+  .vapi-chat-input-section {
+    @apply bg-white rounded-lg p-4 border border-gray-200 shadow-sm;
+  }
+  .chat-input-wrapper {
+    @apply w-full;
+  }
+  .chat-input-field {
+    @apply bg-gray-50 border-gray-200 text-[#212a3b] placeholder-gray-400;
+  }
+  .chat-input-field:focus {
+    @apply bg-white border-[#212a3b];
+  }
+  .chat-input-field:disabled {
+    @apply bg-gray-100 cursor-not-allowed opacity-60;
+  }
+  .chat-send-btn {
+    @apply flex-shrink-0;
+  }
+
   /* ===========================================
      BOOKS LIBRARY COMPONENT
      =========================================== */

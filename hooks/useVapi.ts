@@ -11,6 +11,7 @@ import { ASSISTANT_ID, DEFAULT_VOICE, VOICE_SETTINGS } from '@/lib/constants';
 import { getVoice } from '@/lib/utils';
 import { IBook, Messages } from '@/types';
 import { startVoiceSession, endVoiceSession } from '@/lib/actions/session.actions';
+import { getBookSegments } from '@/lib/actions/book.actions';
 
 export function useLatestRef<T>(value: T) {
     const ref = useRef(value);
@@ -131,42 +132,71 @@ export function useVapi(book: IBook) {
             message: (message: {
                 type: string;
                 role: string;
-                transcriptType: string;
-                transcript: string;
+                transcriptType?: string;
+                transcript?: string;
+                content?: string;
             }) => {
-                if (message.type !== 'transcript') return;
-
-                // User finished speaking → AI is thinking
-                if (message.role === 'user' && message.transcriptType === 'final') {
-                    if (!isStoppingRef.current) {
-                        setStatus('thinking');
+                console.log('Message received from Vapi:', message);
+                
+                // Handle transcript messages (from voice)
+                if (message.type === 'transcript') {
+                    // User finished speaking → AI is thinking
+                    if (message.role === 'user' && message.transcriptType === 'final') {
+                        if (!isStoppingRef.current) {
+                            setStatus('thinking');
+                        }
+                        setCurrentUserMessage('');
                     }
-                    setCurrentUserMessage('');
+
+                    // Partial user transcript → show real-time typing
+                    if (message.role === 'user' && message.transcriptType === 'partial') {
+                        setCurrentUserMessage(message.transcript || '');
+                        return;
+                    }
+
+                    // Partial AI transcript → show word-by-word
+                    if (message.role === 'assistant' && message.transcriptType === 'partial') {
+                        setCurrentMessage(message.transcript || '');
+                        return;
+                    }
+
+                    // Final transcript → add to messages
+                    if (message.transcriptType === 'final') {
+                        if (message.role === 'assistant') setCurrentMessage('');
+                        if (message.role === 'user') setCurrentUserMessage('');
+
+                        setMessages((prev) => {
+                            const isDupe = prev.some(
+                                (m) => m.role === message.role && m.content === message.transcript,
+                            );
+                            return isDupe ? prev : [...prev, { role: message.role, content: message.transcript || '' }];
+                        });
+                        
+                        // After agent responds, go back to listening
+                        if (message.role === 'assistant' && !isStoppingRef.current) {
+                            setStatus('listening');
+                        }
+                    }
                 }
-
-                // Partial user transcript → show real-time typing
-                if (message.role === 'user' && message.transcriptType === 'partial') {
-                    setCurrentUserMessage(message.transcript);
-                    return;
-                }
-
-                // Partial AI transcript → show word-by-word
-                if (message.role === 'assistant' && message.transcriptType === 'partial') {
-                    setCurrentMessage(message.transcript);
-                    return;
-                }
-
-                // Final transcript → add to messages
-                if (message.transcriptType === 'final') {
-                    if (message.role === 'assistant') setCurrentMessage('');
-                    if (message.role === 'user') setCurrentUserMessage('');
-
-                    setMessages((prev) => {
-                        const isDupe = prev.some(
-                            (m) => m.role === message.role && m.content === message.transcript,
-                        );
-                        return isDupe ? prev : [...prev, { role: message.role, content: message.transcript }];
-                    });
+                
+                // Handle text-based messages (from chat input)
+                if (message.type === 'text' || message.type === 'message') {
+                    if (message.role === 'assistant') {
+                        console.log('Agent text response:', message.content);
+                        
+                        // Add agent's text response to messages
+                        setMessages((prev) => {
+                            const isDupe = prev.some(
+                                (m) => m.role === 'assistant' && m.content === message.content,
+                            );
+                            return isDupe ? prev : [...prev, { role: 'assistant', content: message.content || '' }];
+                        });
+                        
+                        // Go back to listening after agent responds
+                        if (!isStoppingRef.current) {
+                            setStatus('listening');
+                        }
+                    }
                 }
             },
 
@@ -248,6 +278,10 @@ export function useVapi(book: IBook) {
                 return;
             }
 
+            // Fetch book segments for the agent
+            const segmentsResult = await getBookSegments(book._id);
+            const bookContent = segmentsResult.success ? segmentsResult.data : '';
+
             sessionIdRef.current = result.sessionId || null;
             // Note: Server-returned maxDurationMinutes is informational only
             // The actual limit is enforced by useLatestRef(limits.maxSessionMinutes * 60)
@@ -260,6 +294,7 @@ export function useVapi(book: IBook) {
                     title: book.title,
                     author: book.author,
                     bookId: book._id,
+                    bookContent: bookContent,
                 },
                 voice: {
                     provider: '11labs' as const,
@@ -281,6 +316,34 @@ export function useVapi(book: IBook) {
     const stop = useCallback(() => {
         isStoppingRef.current = true;
         getVapi().stop();
+    }, []);
+
+    const sendTextMessage = useCallback((text: string) => {
+        try {
+            const vapi = getVapi();
+            
+            console.log('Sending text message:', text);
+            
+            // Add message immediately to UI (optimistic update)
+            setMessages((prev) => [...prev, { role: 'user', content: text }]);
+            
+            // Send text message to Vapi agent
+            vapi.send({
+                type: 'add-message',
+                message: {
+                    role: 'user',
+                    content: text,
+                },
+            } as any);
+
+            console.log('Text message sent to Vapi');
+            
+            // Set thinking status while agent processes
+            setStatus('thinking');
+        } catch (err) {
+            console.error('Failed to send text message:', err);
+            setLimitError('Failed to send message. Please try again.');
+        }
     }, []);
 
     const clearError = useCallback(() => {
@@ -309,13 +372,11 @@ export function useVapi(book: IBook) {
         duration,
         start,
         stop,
+        sendTextMessage,
         limitError,
         isBillingError,
         maxDurationSeconds,
         clearError,
-        // maxDurationSeconds,
-        // remainingSeconds,
-        // showTimeWarning,
     };
 }
 

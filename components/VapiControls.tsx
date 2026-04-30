@@ -5,13 +5,14 @@ import useVapi from "@/hooks/useVapi";
 import {IBook} from "@/types";
 import Image from "next/image";
 import Transcript from "@/components/Transcript";
+import ChatInput from "@/components/ChatInput";
 import {toast} from "sonner";
 
 import {useRouter} from "next/navigation";
 import {useEffect} from "react";
 
 const VapiControls = ({ book }: { book: IBook }) => {
-    const { status, isActive, messages, currentMessage, currentUserMessage, duration, start, stop, clearError, limitError, isBillingError, maxDurationSeconds } = useVapi(book)
+    const { status, isActive, messages, currentMessage, currentUserMessage, duration, start, stop, sendTextMessage, clearError, limitError, isBillingError, maxDurationSeconds } = useVapi(book)
     const router = useRouter();
 
     useEffect(() => {
@@ -113,6 +114,15 @@ const VapiControls = ({ book }: { book: IBook }) => {
                     />
                 </div>
             </div>
+
+            {isActive && (
+                <div className="vapi-chat-input-section">
+                    <ChatInput
+                        onSendMessage={sendTextMessage}
+                        isDisabled={status === 'connecting'}
+                    />
+                </div>
+            )}
             </div>
         </>
     )
