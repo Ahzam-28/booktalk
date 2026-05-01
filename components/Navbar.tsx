@@ -40,12 +40,12 @@ const Navbar = () => {
                             <SignInButton mode="modal" />
                         </SignedOut>
                         <SignedIn>
-                            <div className="nav-user-link">
+                            <div className="nav-user-link flex items-center gap-2">
                                 <UserButton />
                                 {user?.firstName && (
-                                    <Link href="/subscriptions" className="nav-user-name">
+                                    <span className="nav-user-name font-medium">
                                         {user.firstName}
-                                    </Link>
+                                    </span>
                                 )}
                             </div>
                         </SignedIn>
