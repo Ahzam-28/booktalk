@@ -66,6 +66,13 @@ export function useVapi(book: IBook) {
 
     // Set up Vapi event listeners
     useEffect(() => {
+        // Temporarily intercept global console.errors for noisy third-party messages
+        const originalConsoleError = console.error;
+        console.error = (...args: any[]) => {
+            if (typeof args[0] === 'string' && (args[0].includes('Meeting ended due to ejection') || args[0].includes('Vapi error: {}'))) return;
+            originalConsoleError.apply(console, args);
+        };
+
         const handlers = {
             'call-start': () => {
                 isStoppingRef.current = false;
@@ -200,7 +207,16 @@ export function useVapi(book: IBook) {
                 }
             },
 
-            error: (error: Error) => {
+            error: (error: any) => {
+                // Ignore empty errors often emitted by Vapi SDK or Daily.co ejections
+                if (
+                    !error || 
+                    (typeof error === 'object' && Object.keys(error).length === 0) ||
+                    (error.message && error.message.includes('Meeting ended due to ejection'))
+                ) {
+                    return;
+                }
+                
                 console.error('Vapi error:', error);
                 // Don't reset isStoppingRef here - delayed events may still fire
                 setStatus('idle');
@@ -254,6 +270,7 @@ export function useVapi(book: IBook) {
                 getVapi().off(event as keyof typeof handlers, handler as () => void);
             });
             if (timerRef.current) clearInterval(timerRef.current);
+            console.error = originalConsoleError;
         };
     }, []);
 

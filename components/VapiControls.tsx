@@ -9,11 +9,14 @@ import ChatInput from "@/components/ChatInput";
 import {toast} from "sonner";
 
 import {useRouter} from "next/navigation";
-import {useEffect} from "react";
+import {useEffect, useState} from "react";
+import GestureInput from "@/components/GestureInput";
+import { MessageSquare, Hand } from "lucide-react";
 
 const VapiControls = ({ book }: { book: IBook }) => {
     const { status, isActive, messages, currentMessage, currentUserMessage, duration, start, stop, sendTextMessage, clearError, limitError, isBillingError, maxDurationSeconds } = useVapi(book)
     const router = useRouter();
+    const [interactionMode, setInteractionMode] = useState<'text' | 'gesture'>('text');
 
     useEffect(() => {
         if (limitError) {
@@ -116,11 +119,33 @@ const VapiControls = ({ book }: { book: IBook }) => {
             </div>
 
             {isActive && (
-                <div className="vapi-chat-input-section">
-                    <ChatInput
-                        onSendMessage={sendTextMessage}
-                        isDisabled={status === 'connecting'}
-                    />
+                <div className="vapi-chat-input-section flex flex-col gap-4">
+                    <div className="flex bg-[#f1f5f9] p-1 rounded-lg self-center mb-2">
+                        <button
+                            onClick={() => setInteractionMode('text')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${interactionMode === 'text' ? 'bg-white text-[#212a3b] shadow-sm' : 'text-[#64748b] hover:text-[#212a3b]'}`}
+                        >
+                            <MessageSquare className="w-4 h-4" /> Text Chat
+                        </button>
+                        <button
+                            onClick={() => setInteractionMode('gesture')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${interactionMode === 'gesture' ? 'bg-white text-[#212a3b] shadow-sm' : 'text-[#64748b] hover:text-[#212a3b]'}`}
+                        >
+                            <Hand className="w-4 h-4" /> Sign Language
+                        </button>
+                    </div>
+
+                    {interactionMode === 'text' ? (
+                        <ChatInput
+                            onSendMessage={sendTextMessage}
+                            isDisabled={status === 'connecting'}
+                        />
+                    ) : (
+                        <GestureInput
+                            onSendMessage={sendTextMessage}
+                            isDisabled={status === 'connecting'}
+                        />
+                    )}
                 </div>
             )}
             </div>
