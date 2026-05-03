@@ -8,6 +8,47 @@ import BookSegment from "@/database/models/book-segment.model";
 import mongoose from "mongoose";
 import {getUserPlan} from "@/lib/subscription.server";
 
+export const deleteBook = async (slug: string) => {
+    try {
+        await connectToDatabase();
+
+        const { auth } = await import("@clerk/nextjs/server");
+        const { userId } = await auth();
+
+        if (!userId) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const book = await Book.findOne({ slug });
+        
+        if (!book) {
+            return { success: false, error: 'Book not found' };
+        }
+        
+        if (book.clerkId !== userId) {
+             return { success: false, error: "Unauthorized: Not book owner" };
+        }
+
+        // Delete associated segments
+        await BookSegment.deleteMany({ bookId: book._id });
+        
+        // Delete the book
+        await Book.findByIdAndDelete(book._id);
+
+        const { revalidatePath } = await import("next/cache");
+        revalidatePath("/");
+
+        return {
+            success: true
+        }
+    } catch (e) {
+        console.error('Error deleting book', e);
+        return {
+            success: false, error: e
+        }
+    }
+}
+
 export const getAllBooks = async (search?: string) => {
     try {
         await connectToDatabase();

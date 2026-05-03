@@ -1,10 +1,12 @@
 import Link from "next/link";
 import {BookCardProps} from "@/types";
 import Image from "next/image";
+import DeleteBookButton from "./DeleteBookButton";
 
 const BookCard = ({ title, author, coverURL, slug }: BookCardProps) => {
     return (
-        <Link href={`/books/${slug}`}>
+        <Link href={`/books/${slug}`} className="relative block">
+            <DeleteBookButton slug={slug} />
             <article className="book-card">
                 <figure className="book-card-figure">
                     <div className="book-card-cover-wrapper">
