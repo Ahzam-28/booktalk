@@ -1,0 +1,29 @@
+@startuml usecase_diagram
+left to right direction
+skinparam packageStyle rectangle
+
+actor User
+actor "Vapi & ElevenLabs" as AI_Service
+actor "Clerk Auth" as Auth_Service
+
+rectangle "Bookified System" {
+  usecase "Register / Login" as UC1
+  usecase "Upload PDF" as UC2
+  usecase "Chunk & Store Data" as UC3
+  usecase "Talk via Microphone" as UC4
+  usecase "Type Message" as UC5
+  usecase "Realtime AI Audio Handling" as UC6
+  usecase "Realtime AI Text Handling" as UC7
+}
+
+User --> UC1
+UC1 ..> Auth_Service : Authenticate
+User --> UC2
+UC2 --> UC3 : Triggers
+User --> UC4
+User --> UC5
+UC4 --> UC6
+UC5 --> UC7
+UC6 ..> AI_Service : Process Stream
+AI_Service ..> User : Provide Voice Response
+@enduml

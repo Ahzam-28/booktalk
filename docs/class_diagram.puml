@@ -1,0 +1,36 @@
+@startuml
+class User {
+  +String clerkId
+  +String email
+  +String name
+  +Boolean subscriptionActive
+}
+
+class Book {
+  +ObjectId _id
+  +String title
+  +String author
+  +String coverUrl
+  +String pdfUrl
+  +String clerkId
+  +Date createdAt
+}
+
+class BookSegment {
+  +ObjectId _id
+  +ObjectId bookId
+  +Number chunkIndex
+  +String textContent
+}
+
+class VoiceSession {
+  +ObjectId _id
+  +ObjectId bookId
+  +String transcript
+  +Date sessionDate
+}
+
+User "1" -- "0..*" Book : Uploads >
+Book "1" -- "1..*" BookSegment : Split into >
+Book "1" -- "0..*" VoiceSession : Has Activity >
+@enduml

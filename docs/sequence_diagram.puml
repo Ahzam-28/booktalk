@@ -1,0 +1,20 @@
+@startuml sequence_diagram
+actor User as U
+participant "Next.js Frontend" as UI
+participant "Vapi SDK" as V
+participant "Vapi Cloud / LLM" as A
+database "MongoDB" as DB
+
+U -> UI: Clicks "Start Call"
+UI -> DB: Fetch Book Segments
+DB -->> UI: Return Content Chunks
+UI -> V: vapi.start(config + book context)
+V -> A: Establish WebRTC Connection
+A -->> V: Connected
+U -> V: Speaks into Microphone
+V -> A: Audio Stream
+note right of A: Transcribes, queries LLM, synthesizes TTS
+A -->> V: Return AI Audio Stream & Transcript
+V -->> UI: Update Transcript State
+V -->> U: Plays AI Voice
+@enduml
